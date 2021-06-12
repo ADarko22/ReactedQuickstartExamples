@@ -1,11 +1,10 @@
-package adarko22.reacted.quickstart.mongodb.sync.model;
+package adarko22.reacted.quickstart.mongodb.common.model;
 
-import com.mongodb.annotations.Immutable;
 import lombok.Value;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 
-@Immutable
+@Value
 public class ExampleDBDocument extends Document {
 
   public static final String ID_FIELD = "_id";

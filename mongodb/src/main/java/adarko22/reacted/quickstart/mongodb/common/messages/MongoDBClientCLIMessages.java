@@ -1,4 +1,4 @@
-package adarko22.reacted.quickstart.mongodb.sync.model;
+package adarko22.reacted.quickstart.mongodb.common.messages;
 
 import java.io.Serializable;
 import lombok.Value;

@@ -1,8 +1,8 @@
 package adarko22.reacted.quickstart.mongodb.reactivestreams.service;
 
-import adarko22.reacted.quickstart.mongodb.sync.model.ExampleDBDocument;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.QueryReply;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.StoreReply;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryReply;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreReply;
+import adarko22.reacted.quickstart.mongodb.common.model.ExampleDBDocument;
 import com.mongodb.client.result.InsertOneResult;
 import io.reacted.core.reactorsystem.ReActorRef;
 import java.util.Collections;

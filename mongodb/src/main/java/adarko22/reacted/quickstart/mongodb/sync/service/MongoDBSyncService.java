@@ -1,14 +1,15 @@
 package adarko22.reacted.quickstart.mongodb.sync.service;
 
-import adarko22.reacted.quickstart.mongodb.sync.model.ExampleDBDocument;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.QueryReply;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.QueryRequest;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.StoreReply;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.StoreRequest;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryReply;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryRequest;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreReply;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreRequest;
+import adarko22.reacted.quickstart.mongodb.common.model.ExampleDBDocument;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.result.InsertOneResult;
 import io.reacted.core.config.reactors.ReActorConfig;
+import io.reacted.core.mailboxes.BasicMbox;
 import io.reacted.core.messages.reactors.ReActorInit;
 import io.reacted.core.reactors.ReActions;
 import io.reacted.core.reactors.ReActor;
@@ -37,6 +38,7 @@ public class MongoDBSyncService implements ReActor {
   public ReActorConfig getConfig() {
     return ReActorConfig.newBuilder()
                .setReActorName(MongoDBSyncService.class.getSimpleName())
+               .setMailBoxProvider(reActorContext -> new BasicMbox())
                .build();
   }
 
@@ -51,14 +53,14 @@ public class MongoDBSyncService implements ReActor {
   }
 
   private void onMongoInit(ReActorContext raCtx, ReActorInit init) {
+    LOGGER.info("Initializing: finding mongo collection");
     this.mongoCollection = Objects.requireNonNull(mongoClient)
                                .getDatabase(DB_NAME)
                                .getCollection(COLLECTION, ExampleDBDocument.class);
   }
 
   private void onStoreRequest(ReActorContext raCtx, StoreRequest request) {
-    InsertOneResult result =
-        mongoCollection.insertOne(ExampleDBDocument.fromPojo(request.getExampleDBDocumentPojo()));
+    InsertOneResult result = mongoCollection.insertOne(ExampleDBDocument.fromPojo(request.getExampleDBDocumentPojo()));
 
     LOGGER.info("On StoreRequest of {}: {}", request.getExampleDBDocumentPojo(), result);
     raCtx.getSender().tell(new StoreReply());

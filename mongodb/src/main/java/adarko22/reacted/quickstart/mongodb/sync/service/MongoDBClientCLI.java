@@ -1,14 +1,16 @@
 package adarko22.reacted.quickstart.mongodb.sync.service;
 
-import adarko22.reacted.quickstart.mongodb.sync.model.ExampleDBDocument;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBClientCLIMessages.DiscoveryError;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBClientCLIMessages.WaitForCLIInput;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.QueryReply;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.QueryRequest;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.StoreReply;
-import adarko22.reacted.quickstart.mongodb.sync.model.MongoDBServiceMessages.StoreRequest;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBClientCLIMessages.DiscoveryError;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBClientCLIMessages.WaitForCLIInput;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryReply;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryRequest;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreReply;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreRequest;
+import adarko22.reacted.quickstart.mongodb.common.model.ExampleDBDocument;
+import adarko22.reacted.quickstart.mongodb.sync.ReactedMongoDBSyncApp;
 import com.mongodb.client.model.Filters;
 import io.reacted.core.config.reactors.ReActorConfig;
+import io.reacted.core.mailboxes.BasicMbox;
 import io.reacted.core.messages.reactors.ReActorInit;
 import io.reacted.core.messages.services.BasicServiceDiscoverySearchFilter;
 import io.reacted.core.messages.services.ServiceDiscoveryReply;
@@ -22,17 +24,17 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MongoDBClientCLIService implements ReActor {
+public class MongoDBClientCLI implements ReActor {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoDBClientCLIService.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoDBClientCLI.class);
   private final Scanner in = new Scanner(System.in);
 
   @NotNull
   @Override
   public ReActorConfig getConfig() {
-    // todo
     return ReActorConfig.newBuilder()
-               .setReActorName(MongoDBClientCLIService.class.getSimpleName())
+               .setReActorName(MongoDBClientCLI.class.getSimpleName())
+               .setMailBoxProvider(reActorContext -> new BasicMbox())
                .build();
   }
 
@@ -49,14 +51,16 @@ public class MongoDBClientCLIService implements ReActor {
   }
 
   private void onCLIInit(ReActorContext reActorContext, ReActorInit reActorInit) {
+    LOGGER.info("Initializing: running service discovery");
     reActorContext.getReActorSystem()
         .serviceDiscovery(BasicServiceDiscoverySearchFilter.newBuilder()
-                              .setServiceName(MongoDBSyncService.class.getSimpleName())
+                              .setServiceName(ReactedMongoDBSyncApp.DB_SERVICE_NAME)
                               .build())
-        .thenAccept(serviceDiscoveryReplyTry -> onMongoDBSyncServiceDiscoveryReply(reActorContext, serviceDiscoveryReplyTry));
+        .thenAccept(serviceDiscoveryReplyTry -> onDBServiceDiscoveryReply(reActorContext, serviceDiscoveryReplyTry));
   }
 
-  private void onMongoDBSyncServiceDiscoveryReply(ReActorContext reActorContext, Try<ServiceDiscoveryReply> serviceDiscoveryReplyTry) {
+  private void onDBServiceDiscoveryReply(ReActorContext reActorContext, Try<ServiceDiscoveryReply> serviceDiscoveryReplyTry) {
+    LOGGER.info("Initializing: service discovery completed. Selecting a service and staerting CLI ...");
     reActorContext.getMbox().request(1);
     serviceDiscoveryReplyTry.filter(services -> !services.getServiceGates().isEmpty())
         .map(services -> services.getServiceGates().iterator().next())
@@ -65,7 +69,7 @@ public class MongoDBClientCLIService implements ReActor {
   }
 
   private void onDiscoveryError(ReActorContext reActorContext, DiscoveryError discoveryError) {
-    System.out.println("Error during discovery: " + discoveryError.getError());
+    LOGGER.error("Error during discovery: " + discoveryError.getError());
   }
 
   private void onWaitForCLIInput(ReActorContext reActorContext, WaitForCLIInput waitForCLIInput) {

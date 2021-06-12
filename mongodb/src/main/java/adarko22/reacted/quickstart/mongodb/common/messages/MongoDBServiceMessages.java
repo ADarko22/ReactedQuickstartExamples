@@ -1,5 +1,6 @@
-package adarko22.reacted.quickstart.mongodb.sync.model;
+package adarko22.reacted.quickstart.mongodb.common.messages;
 
+import adarko22.reacted.quickstart.mongodb.common.model.ExampleDBDocument;
 import java.io.Serializable;
 import java.util.Collection;
 import lombok.Value;
