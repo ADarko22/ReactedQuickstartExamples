@@ -1,10 +1,12 @@
 package adarko22.reacted.quickstart.mongodb.sync.service;
 
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryError;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryReply;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryRequest;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreReply;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreRequest;
 import adarko22.reacted.quickstart.mongodb.common.model.ExampleDBDocument;
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.result.InsertOneResult;
@@ -18,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +34,7 @@ public class MongoDBSyncService implements ReActor {
 
   private final MongoClient mongoClient;
 
-  private MongoCollection<ExampleDBDocument> mongoCollection;
+  private MongoCollection<Document> mongoCollection;
 
   @NotNull
   @Override
@@ -56,7 +59,7 @@ public class MongoDBSyncService implements ReActor {
     LOGGER.info("Initializing: finding mongo collection");
     this.mongoCollection = Objects.requireNonNull(mongoClient)
                                .getDatabase(DB_NAME)
-                               .getCollection(COLLECTION, ExampleDBDocument.class);
+                               .getCollection(COLLECTION, Document.class);
   }
 
   private void onStoreRequest(ReActorContext raCtx, StoreRequest request) {
@@ -68,15 +71,22 @@ public class MongoDBSyncService implements ReActor {
 
   private void onQueryRequest(ReActorContext raCtx, QueryRequest request) {
     List<ExampleDBDocument.Pojo> results = new ArrayList<>();
-    mongoCollection.find(request.getFilter())
-        .map(ExampleDBDocument::toPojo)
-        .forEach(results::add);
 
-    if (!results.isEmpty()) {
-      LOGGER.info("On QueryRequest of {}: {}", request.getFilter(), results);
-      raCtx.getSender().tell(new QueryReply(results));
-    } else {
-      LOGGER.info("On QueryRequest of {}: null result", request.getFilter());
+    try {
+      mongoCollection.find(request.getFilter())
+          .map(ExampleDBDocument::toPojo)
+          .forEach(results::add);
+
+      if (!results.isEmpty()) {
+        LOGGER.info("On QueryRequest of {}: {}", request.getFilter(), results);
+        raCtx.getSender().tell(new QueryReply(results));
+      } else {
+        LOGGER.info("On QueryRequest of {}: null result", request.getFilter());
+        raCtx.getSender().tell(new QueryError());
+      }
+    } catch (Exception e) {
+      LOGGER.info("Error during on QueryRequest of {}", request.getFilter(), e);
+      raCtx.getSender().tell(new QueryError());
     }
   }
 }

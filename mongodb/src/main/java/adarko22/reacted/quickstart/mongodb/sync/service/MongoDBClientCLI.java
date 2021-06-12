@@ -2,6 +2,7 @@ package adarko22.reacted.quickstart.mongodb.sync.service;
 
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBClientCLIMessages.DiscoveryError;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBClientCLIMessages.WaitForCLIInput;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryError;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryReply;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryRequest;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreReply;
@@ -46,6 +47,7 @@ public class MongoDBClientCLI implements ReActor {
                .reAct(WaitForCLIInput.class, this::onWaitForCLIInput)
                .reAct(DiscoveryError.class, this::onDiscoveryError)
                .reAct(QueryReply.class, this::onQueryReply)
+               .reAct(QueryError.class, this::onQueryError)
                .reAct(StoreReply.class, this::onStoreReply)
                .build();
   }
@@ -75,7 +77,7 @@ public class MongoDBClientCLI implements ReActor {
   private void onWaitForCLIInput(ReActorContext reActorContext, WaitForCLIInput waitForCLIInput) {
 
     while (true) {
-      System.out.println("Type operation: (\"search <topic>\" or \"store --id=<id> --topic=<topic> --data=<data>\")");
+      System.out.println("Type operation: (\"search topic=<topic>\" or \"store --id=<id> --topic=<topic> --data=<data>\")");
       String operation = in.nextLine();
 
       try {
@@ -106,9 +108,16 @@ public class MongoDBClientCLI implements ReActor {
 
   private void onQueryReply(ReActorContext reActorContext, QueryReply queryReply) {
     System.out.println("Query result: " + queryReply.getExampleDBDocumentPojos());
+    reActorContext.getSelf().tell(reActorContext.getSender(), new WaitForCLIInput());
+  }
+
+  private void onQueryError(ReActorContext reActorContext, QueryError error) {
+    reActorContext.getSelf().tell(reActorContext.getSender(), new WaitForCLIInput());
+
   }
 
   private void onStoreReply(ReActorContext reActorContext, StoreReply storeReply) {
+    reActorContext.getSelf().tell(reActorContext.getSender(), new WaitForCLIInput());
   }
 
   private static String split(String text, String assignmentKey) {
@@ -116,5 +125,4 @@ public class MongoDBClientCLI implements ReActor {
     tokens = tokens[1].split("[(--)\n]");
     return tokens[0];
   }
-
 }

@@ -6,7 +6,9 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.reacted.core.config.reactors.ServiceConfig;
 import io.reacted.core.config.reactorsystem.ReActorSystemConfig;
+import io.reacted.core.messages.services.ServiceDiscoveryRequest;
 import io.reacted.core.reactorsystem.ReActorSystem;
+import io.reacted.core.typedsubscriptions.TypedSubscription;
 
 public class ReactedMongoDBSyncApp {
 
@@ -16,7 +18,7 @@ public class ReactedMongoDBSyncApp {
   private static final String MONGO_DB_URI = "mongodb://127.0.0.1:27017";
 
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws InterruptedException {
 
     ReActorSystem backendSystem = new ReActorSystem(ReActorSystemConfig.newBuilder()
                                                         .setLocalDriver(ReActorSystemConfig.DEFAULT_LOCAL_DRIVER)
@@ -29,6 +31,7 @@ public class ReactedMongoDBSyncApp {
 
     backendSystem.spawnService(ServiceConfig.newBuilder()
                                    .setReActorName(DB_SERVICE_NAME)
+                                   .setTypedSubscriptions(TypedSubscription.LOCAL.forType(ServiceDiscoveryRequest.class))
                                    .setRouteeProvider(() -> new MongoDBSyncService(mongoClient))
                                    .build());
 

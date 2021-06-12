@@ -27,7 +27,7 @@ public class MongoDBServiceSubscribers {
 
     @Override
     public void onNext(ExampleDBDocument exampleDBDocument) {
-      requester.tell(mongoGate, new QueryReply(Collections.singletonList(exampleDBDocument.toPojo())))
+      requester.tell(mongoGate, new QueryReply(Collections.singletonList(ExampleDBDocument.toPojo(exampleDBDocument))))
           .thenAccept(delivery -> subscription.request(1));
     }
 
