@@ -1,4 +1,4 @@
-package adarko22.reacted.quickstart.mongodb.sync.service;
+package adarko22.reacted.quickstart.mongodb.common;
 
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBClientCLIMessages.DiscoveryError;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBClientCLIMessages.WaitForCLIInput;

@@ -1,6 +1,6 @@
 package adarko22.reacted.quickstart.mongodb.sync;
 
-import adarko22.reacted.quickstart.mongodb.sync.service.MongoDBClientCLI;
+import adarko22.reacted.quickstart.mongodb.common.MongoDBClientCLI;
 import adarko22.reacted.quickstart.mongodb.sync.service.MongoDBSyncService;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -18,7 +18,7 @@ public class ReactedMongoDBSyncApp {
   private static final String MONGO_DB_URI = "mongodb://127.0.0.1:27017";
 
 
-  public static void main(String[] args) throws InterruptedException {
+  public static void main(String[] args) {
 
     ReActorSystem backendSystem = new ReActorSystem(ReActorSystemConfig.newBuilder()
                                                         .setLocalDriver(ReActorSystemConfig.DEFAULT_LOCAL_DRIVER)
