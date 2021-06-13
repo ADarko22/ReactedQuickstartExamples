@@ -5,6 +5,7 @@ import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBClientCLIMessa
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryError;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryReply;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryRequest;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreError;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreReply;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreRequest;
 import adarko22.reacted.quickstart.mongodb.common.model.ExampleDBDocument;
@@ -18,17 +19,17 @@ import io.reacted.core.messages.services.ServiceDiscoveryReply;
 import io.reacted.core.reactors.ReActions;
 import io.reacted.core.reactors.ReActor;
 import io.reacted.core.reactorsystem.ReActorContext;
+import io.reacted.core.reactorsystem.ReActorRef;
 import io.reacted.patterns.Try;
 import java.util.Objects;
 import java.util.Scanner;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class MongoDBClientCLI implements ReActor {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoDBClientCLI.class);
   private final Scanner in = new Scanner(System.in);
+
+  private ReActorRef mongoDBSyncServiceRef;
 
   @NotNull
   @Override
@@ -49,11 +50,12 @@ public class MongoDBClientCLI implements ReActor {
                .reAct(QueryReply.class, this::onQueryReply)
                .reAct(QueryError.class, this::onQueryError)
                .reAct(StoreReply.class, this::onStoreReply)
+               .reAct(StoreError.class, this::onStoreError)
                .build();
   }
 
   private void onCLIInit(ReActorContext reActorContext, ReActorInit reActorInit) {
-    LOGGER.info("Initializing: running service discovery");
+    reActorContext.logInfo("Initializing: running service discovery");
     reActorContext.getReActorSystem()
         .serviceDiscovery(BasicServiceDiscoverySearchFilter.newBuilder()
                               .setServiceName(ReactedMongoDBSyncApp.DB_SERVICE_NAME)
@@ -62,22 +64,25 @@ public class MongoDBClientCLI implements ReActor {
   }
 
   private void onDBServiceDiscoveryReply(ReActorContext reActorContext, Try<ServiceDiscoveryReply> serviceDiscoveryReplyTry) {
-    LOGGER.info("Initializing: service discovery completed. Selecting a service and staerting CLI ...");
+    reActorContext.logInfo("Initializing: service discovery completed. Selecting a service and starting CLI ...");
     reActorContext.getMbox().request(1);
     serviceDiscoveryReplyTry.filter(services -> !services.getServiceGates().isEmpty())
         .map(services -> services.getServiceGates().iterator().next())
-        .mapOrElse(gate -> reActorContext.getSelf().tell(gate, new WaitForCLIInput()),
+        .mapOrElse(gate -> {
+                     mongoDBSyncServiceRef = gate;
+                     return reActorContext.selfTell(new WaitForCLIInput());
+                   },
                    error -> reActorContext.selfTell(new DiscoveryError(error)));
   }
 
   private void onDiscoveryError(ReActorContext reActorContext, DiscoveryError discoveryError) {
-    LOGGER.error("Error during discovery: " + discoveryError.getError());
+    reActorContext.logError("Error during discovery: {}", discoveryError.getError());
   }
 
   private void onWaitForCLIInput(ReActorContext reActorContext, WaitForCLIInput waitForCLIInput) {
 
     while (true) {
-      System.out.println("Type operation: (\"search topic=<topic>\" or \"store --id=<id> --topic=<topic> --data=<data>\")");
+      System.out.println("Type operation: (\"search --topic=<topic>\" or \"store --id=<id> --topic=<topic> --data=<data>\")");
       String operation = in.nextLine();
 
       try {
@@ -85,20 +90,20 @@ public class MongoDBClientCLI implements ReActor {
         String operationType = tokens[0];
 
         if (Objects.equals(operationType, "search")) {
-          String topic = split(operation, "topic=");
+          String topic = split(operation, "--topic=");
 
-          reActorContext.getSender().tell(reActorContext.getSelf(), new QueryRequest(Filters.eq(ExampleDBDocument.TOPIC_FIELD, topic)));
+          mongoDBSyncServiceRef.tell(reActorContext.getSelf(), new QueryRequest(Filters.eq(ExampleDBDocument.TOPIC_FIELD, topic)));
         } else if (Objects.equals(operationType, "store")) {
           String id = split(operation, "--id=");
           String topic = split(operation, "--topic=");
           String data = split(operation, "--data=");
 
-          reActorContext.getSender().tell(reActorContext.getSelf(), new StoreRequest(new ExampleDBDocument.Pojo(id, topic, data)));
+          mongoDBSyncServiceRef.tell(reActorContext.getSelf(), new StoreRequest(new ExampleDBDocument.Pojo(id, topic, data)));
         } else {
           throw new UnsupportedOperationException();
         }
       } catch (Exception e) {
-        LOGGER.warn("Error happened processing '{}'", operation, e);
+        reActorContext.logError("Error happened processing '{}'", operation, e);
         continue;
       }
 
@@ -107,22 +112,29 @@ public class MongoDBClientCLI implements ReActor {
   }
 
   private void onQueryReply(ReActorContext reActorContext, QueryReply queryReply) {
+    reActorContext.logInfo("Completed query: {}", queryReply);
     System.out.println("Query result: " + queryReply.getExampleDBDocumentPojos());
-    reActorContext.getSelf().tell(reActorContext.getSender(), new WaitForCLIInput());
+    reActorContext.selfTell(new WaitForCLIInput());
   }
 
   private void onQueryError(ReActorContext reActorContext, QueryError error) {
-    reActorContext.getSelf().tell(reActorContext.getSender(), new WaitForCLIInput());
-
+    reActorContext.logError("Error during query");
+    reActorContext.selfTell(new WaitForCLIInput());
   }
 
   private void onStoreReply(ReActorContext reActorContext, StoreReply storeReply) {
-    reActorContext.getSelf().tell(reActorContext.getSender(), new WaitForCLIInput());
+    reActorContext.logInfo("Completed store");
+    reActorContext.selfTell(new WaitForCLIInput());
+  }
+
+  private void onStoreError(ReActorContext reActorContext, StoreError storeError) {
+    reActorContext.logError("Error during store");
+    reActorContext.selfTell(new WaitForCLIInput());
   }
 
   private static String split(String text, String assignmentKey) {
     String[] tokens = text.split(assignmentKey);
     tokens = tokens[1].split("[(--)\n]");
-    return tokens[0];
+    return tokens[0].trim();
   }
 }

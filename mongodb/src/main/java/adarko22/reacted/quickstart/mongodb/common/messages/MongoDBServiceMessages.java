@@ -19,10 +19,10 @@ public class MongoDBServiceMessages {
 
     Bson filter;
   }
+
   @Value
   public static class QueryError implements Serializable {
   }
-
 
   @Value
   public static class StoreReply implements Serializable {
@@ -33,4 +33,9 @@ public class MongoDBServiceMessages {
 
     ExampleDBDocument.Pojo exampleDBDocumentPojo;
   }
+
+  @Value
+  public static class StoreError implements Serializable {
+  }
+
 }

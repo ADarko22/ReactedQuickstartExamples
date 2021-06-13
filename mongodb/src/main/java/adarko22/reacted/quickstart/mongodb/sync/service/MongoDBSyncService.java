@@ -3,10 +3,10 @@ package adarko22.reacted.quickstart.mongodb.sync.service;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryError;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryReply;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.QueryRequest;
+import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreError;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreReply;
 import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessages.StoreRequest;
 import adarko22.reacted.quickstart.mongodb.common.model.ExampleDBDocument;
-import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.result.InsertOneResult;
@@ -22,13 +22,10 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @RequiredArgsConstructor
 public class MongoDBSyncService implements ReActor {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoDBSyncService.class);
   private static final String DB_NAME = "example_db";
   private static final String COLLECTION = "example_data";
 
@@ -55,21 +52,26 @@ public class MongoDBSyncService implements ReActor {
                .build();
   }
 
-  private void onMongoInit(ReActorContext raCtx, ReActorInit init) {
-    LOGGER.info("Initializing: finding mongo collection");
+  private void onMongoInit(ReActorContext reActorContext, ReActorInit init) {
+    reActorContext.logInfo("Initializing: finding mongo collection");
     this.mongoCollection = Objects.requireNonNull(mongoClient)
                                .getDatabase(DB_NAME)
                                .getCollection(COLLECTION, Document.class);
   }
 
-  private void onStoreRequest(ReActorContext raCtx, StoreRequest request) {
-    InsertOneResult result = mongoCollection.insertOne(ExampleDBDocument.fromPojo(request.getExampleDBDocumentPojo()));
+  private void onStoreRequest(ReActorContext reActorContext, StoreRequest request) {
+    try {
+      InsertOneResult result = mongoCollection.insertOne(ExampleDBDocument.fromPojo(request.getExampleDBDocumentPojo()));
 
-    LOGGER.info("On StoreRequest of {}: {}", request.getExampleDBDocumentPojo(), result);
-    raCtx.getSender().tell(new StoreReply());
+      reActorContext.logInfo(String.format("On StoreRequest of {}: %s", result), request);
+      reActorContext.getSender().tell(new StoreReply());
+    } catch (Exception e) {
+      reActorContext.logInfo("Error during on StoreRequest of {}", request, e);
+      reActorContext.getSender().tell(new StoreError());
+    }
   }
 
-  private void onQueryRequest(ReActorContext raCtx, QueryRequest request) {
+  private void onQueryRequest(ReActorContext reActorContext, QueryRequest request) {
     List<ExampleDBDocument.Pojo> results = new ArrayList<>();
 
     try {
@@ -78,15 +80,15 @@ public class MongoDBSyncService implements ReActor {
           .forEach(results::add);
 
       if (!results.isEmpty()) {
-        LOGGER.info("On QueryRequest of {}: {}", request.getFilter(), results);
-        raCtx.getSender().tell(new QueryReply(results));
+        reActorContext.logInfo(String.format("On QueryRequest of {}: %s", results), request);
+        reActorContext.getSender().tell(new QueryReply(results));
       } else {
-        LOGGER.info("On QueryRequest of {}: null result", request.getFilter());
-        raCtx.getSender().tell(new QueryError());
+        reActorContext.logInfo("On QueryRequest of {}", request);
+        reActorContext.getSender().tell(new QueryError());
       }
     } catch (Exception e) {
-      LOGGER.info("Error during on QueryRequest of {}", request.getFilter(), e);
-      raCtx.getSender().tell(new QueryError());
+      reActorContext.logError("Error during on QueryRequest of {}", request, e);
+      reActorContext.getSender().tell(new QueryError());
     }
   }
 }
