@@ -9,7 +9,11 @@ import adarko22.reacted.quickstart.mongodb.common.messages.MongoDBServiceMessage
 import adarko22.reacted.quickstart.mongodb.common.model.ExampleDBDocument;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.InsertOneResult;
+import com.mongodb.client.result.UpdateResult;
 import io.reacted.core.config.reactors.ReActorConfig;
 import io.reacted.core.mailboxes.BasicMbox;
 import io.reacted.core.messages.reactors.ReActorInit;
@@ -21,6 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.jetbrains.annotations.NotNull;
 
 @RequiredArgsConstructor
@@ -61,7 +66,11 @@ public class MongoDBSyncService implements ReActor {
 
   private void onStoreRequest(ReActorContext reActorContext, StoreRequest request) {
     try {
-      InsertOneResult result = mongoCollection.insertOne(ExampleDBDocument.fromPojo(request.getExampleDBDocumentPojo()));
+      Document document = ExampleDBDocument.fromPojo(request.getExampleDBDocumentPojo());
+      Bson query = Filters.eq(ExampleDBDocument.TOPIC_FIELD, document.get(ExampleDBDocument.TOPIC_FIELD));
+      InsertOneResult result = mongoCollection.insertOne(document);
+
+      //todo find a way for updates O.O
 
       reActorContext.logInfo(String.format("On StoreRequest of {}: %s", result), request);
       reActorContext.getSender().tell(new StoreReply());

@@ -23,6 +23,7 @@ import io.reacted.core.reactorsystem.ReActorRef;
 import io.reacted.patterns.Try;
 import java.util.Objects;
 import java.util.Scanner;
+import org.bson.BsonDocument;
 import org.jetbrains.annotations.NotNull;
 
 public class MongoDBClientCLI implements ReActor {
@@ -82,7 +83,7 @@ public class MongoDBClientCLI implements ReActor {
   private void onWaitForCLIInput(ReActorContext reActorContext, WaitForCLIInput waitForCLIInput) {
 
     while (true) {
-      System.out.println("Type operation: (\"search --topic=<topic>\" or \"store --id=<id> --topic=<topic> --data=<data>\")");
+      System.out.println("Type operation: (\"search --topic=<topic>\" or \"store --topic=<topic> --data=<data>\")");
       String operation = in.nextLine();
 
       try {
@@ -90,15 +91,18 @@ public class MongoDBClientCLI implements ReActor {
         String operationType = tokens[0];
 
         if (Objects.equals(operationType, "search")) {
-          String topic = split(operation, "--topic=");
+          String topic = extractAssignmentValue(operation, "--topic=", reActorContext);
 
-          mongoDBSyncServiceRef.tell(reActorContext.getSelf(), new QueryRequest(Filters.eq(ExampleDBDocument.TOPIC_FIELD, topic)));
+          if (topic != null) {
+            mongoDBSyncServiceRef.tell(reActorContext.getSelf(), new QueryRequest(Filters.eq(ExampleDBDocument.TOPIC_FIELD, topic)));
+          } else {
+            mongoDBSyncServiceRef.tell(reActorContext.getSelf(), new QueryRequest(new BsonDocument()));
+          }
         } else if (Objects.equals(operationType, "store")) {
-          String id = split(operation, "--id=");
-          String topic = split(operation, "--topic=");
-          String data = split(operation, "--data=");
+          String topic = extractAssignmentValue(operation, "--topic=", reActorContext);
+          String data = extractAssignmentValue(operation, "--data=", reActorContext);
 
-          mongoDBSyncServiceRef.tell(reActorContext.getSelf(), new StoreRequest(new ExampleDBDocument.Pojo(id, topic, data)));
+          mongoDBSyncServiceRef.tell(reActorContext.getSelf(), new StoreRequest(new ExampleDBDocument.Pojo(topic, data)));
         } else {
           throw new UnsupportedOperationException();
         }
@@ -132,9 +136,15 @@ public class MongoDBClientCLI implements ReActor {
     reActorContext.selfTell(new WaitForCLIInput());
   }
 
-  private static String split(String text, String assignmentKey) {
+  private static String extractAssignmentValue(String text, String assignmentKey, ReActorContext reActorContext) {
     String[] tokens = text.split(assignmentKey);
-    tokens = tokens[1].split("[(--)\n]");
-    return tokens[0].trim();
+
+    if (tokens.length == 2) {
+      tokens = tokens[1].split("[(--)\n]");
+      return tokens[0].trim();
+    } else {
+      reActorContext.logInfo("Couldn't extract assigned value for '{}' on text: {}", assignmentKey, text);
+      return null;
+    }
   }
 }
